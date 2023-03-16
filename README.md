@@ -38,6 +38,9 @@ docsフォルダのファイルを自動でリストアップしてpdfを作成�
 - [ ] 通しのページ番号を入れる
 - [ ] 目次ファイルの自動生成（これはけっこう難しそうな気がする）
 
+## （リンクのみ）語群からキーワードを選択する問題を作成する
+https://blog.ecofirm.com/post/createquestionsfromwordlist/
+
 ## （公開予定）basicmarket：簡単な市場メカニズムの図を作成
 pythonのMatplotLibで簡単な市場メカニズムの図を作成する。
 
