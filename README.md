@@ -39,9 +39,9 @@ html, csv, txtに出力可能。
 
 そこで、このツールを使うと、次のようになる。
 
-![処理結果の例](sample.png)
+![処理結果の例](markdownmatrix/sample.png)
 
-htmlで出力したものは[こちら](markdownsource.html)。
+htmlで出力したものは[こちら](markdownmatrix/markdownsource.html)。
 
 現状では、２レベルまでのタイトルを認識して、１レベル目を行（縦）、２レベル目を列（横）に展開した表にする。
 １レベル目の数だけ行ができて、１レベルの中にある２レベルの数だけ列ができる。
