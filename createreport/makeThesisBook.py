@@ -50,6 +50,12 @@ def get_options():
     argparser.add_argument('-td', '--temp_dir', type=str,
                            default = 'temp',
                            help='Working directory')
+    argparser.add_argument('-ww', '--wipe_workingfiles',
+                           action = "store_true",
+                           help='wipe working files')
+    argparser.add_argument('-p', '--from_pagenum', type=int,
+                           default = 0,
+                           help='Add page num from page x')
     return argparser.parse_args()
 
 def convert(in_file, out_file):
@@ -122,7 +128,8 @@ def add_page_number(input_file: str, output_file: str, start_num: int = 1, recor
         pdf_page = pdf_reader.pages[i]
         # ページ番号だけのPDF
         pdf_num = pdf_num_reader.pages[i]
-        if i > record_from:
+        print("ページを追加：" + str(record_from))
+        if i >= record_from:
             # ２つのPDFを重ねる
             pdf_page.merge_page(pdf_num)
         pdf_writer.add_page(pdf_page)
@@ -199,6 +206,7 @@ if __name__ == "__main__":
         # os.remove(blankpage)
         page = canvas.Canvas(blankpage, pagesize=portrait(A4))
         # PDFファイルとして保存
+        page.showPage()
         page.save()
 
     pdfs = []
@@ -221,12 +229,13 @@ if __name__ == "__main__":
     if args.wipe_tempdir : shutil.rmtree(tmpdir)
 
     print("ページ追加中")
-    # テスト用
     paged_file = str(source_path  + "paged.pdf")
     if os.path.exists(paged_file): os.remove(paged_file)
-    add_page_number(out_file, paged_file, 0, 17)
+    add_page_number(out_file, paged_file, 0, args.from_pagenum)
     print("目次追加中")
     outlined_file = str(source_path  + "outlined.pdf")
     if os.path.exists(outlined_file): os.remove(outlined_file)
     add_outline(paged_file, outlined_file, pdfindex)
-
+    if args.wipe_workingfiles:
+        os.remove(out_file)
+        os.remove(paged_file)
