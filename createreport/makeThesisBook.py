@@ -82,10 +82,14 @@ def pdf_merger(out_pdf, pdfs, add_blank):
     newpage = 1
     for pdf in pdfs:
         pdfindex[os.path.basename(pdf)] = newpage
+        
+#        print(filelist.at[pdf, '目次'], ':', value)
+
+
         merger.append(pdf)
         if add_blank & (len(merger.pages) % 2) == 1:
             merger.append(blankpage)
-        newpage = len(merger.pages)
+        newpage = len(merger.pages)+1
         print(pdf, '(pages: ', len(merger.pages), ')')
     for key, val in pdfindex.items():
         if not key == '-':
@@ -128,8 +132,7 @@ def add_page_number(input_file: str, output_file: str, start_num: int = 1, recor
         pdf_page = pdf_reader.pages[i]
         # ページ番号だけのPDF
         pdf_num = pdf_num_reader.pages[i]
-        print("ページを追加：" + str(record_from))
-        if i >= record_from:
+        if i >= record_from-1:
             # ２つのPDFを重ねる
             pdf_page.merge_page(pdf_num)
         pdf_writer.add_page(pdf_page)
@@ -150,11 +153,11 @@ def create_page_number_pdf(c: canvas.Canvas, page_size: tuple, page_num: int):
     c.setPageSize(page_size)
     c.setFont("HeiseiKakuGo-W5", 10)
     if page_num % 2 != 0:
-        c.drawString(25,
+        c.drawRightString(page_size[0] - 25,
                       PAGE_BOTTOM,
                       "-" + str(page_num) + "-")
     else:
-        c.drawRightString(page_size[0] - 25,
+        c.drawString(25,
                       PAGE_BOTTOM,
                       "-" + str(page_num) + "-")
     c.showPage()
@@ -174,11 +177,10 @@ def add_outline(infile, outfile, pdfindex):
     reader = PyPDF2.PdfReader(infile)
     writer = PyPDF2.PdfWriter()
     writer.append_pages_from_reader(reader)
-    #    writer.clone_document_from_reader(reader)
     for key, val in pdfindex.items():
         if not key == '-':
             print(key, val)
-            writer.add_outline_item(key, val, parent=None)  # add bookmark
+            writer.add_outline_item(key, val-1, parent=None)  # add bookmark
     with open(outfile, "wb") as fp:
         writer.write(fp)
 
@@ -231,7 +233,7 @@ if __name__ == "__main__":
     print("ページ追加中")
     paged_file = str(source_path  + "paged.pdf")
     if os.path.exists(paged_file): os.remove(paged_file)
-    add_page_number(out_file, paged_file, 0, args.from_pagenum)
+    add_page_number(out_file, paged_file, 1, args.from_pagenum)
     print("目次追加中")
     outlined_file = str(source_path  + "outlined.pdf")
     if os.path.exists(outlined_file): os.remove(outlined_file)
