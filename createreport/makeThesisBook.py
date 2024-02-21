@@ -4,8 +4,8 @@ import shutil
 import comtypes.client
 import glob
 import pathlib
-import PyPDF2
-from PyPDF2 import PageObject
+import pypdf
+from pypdf import PageObject
 from reportlab.pdfgen import canvas
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.cidfonts import UnicodeCIDFont
@@ -78,24 +78,15 @@ def pdf_merger(out_pdf, pdfs, add_blank):
     """
     pdfindex = {}
     print('Merging your documents...')
-    merger = PyPDF2.PdfMerger()
-    newpage = 1
+    merger = pypdf.PdfWriter()
     for pdf in pdfs:
-        pdfindex[os.path.basename(pdf)] = newpage
-        
-#        print(filelist.at[pdf, '目次'], ':', value)
-
-
-        merger.append(pdf)
+        pdftitle = filelist.at[os.path.basename(pdf).replace('.pdf', '.docx'), '目次']
+        pdfindex[pdftitle] = len(merger.pages) + 1
+        merger.append(pdf, pdftitle)
         if add_blank & (len(merger.pages) % 2) == 1:
             merger.append(blankpage)
-        newpage = len(merger.pages)+1
-        print(pdf, '(pages: ', len(merger.pages), ')')
-    for key, val in pdfindex.items():
-        if not key == '-':
-            merger.add_outline_item(key, val, parent=None)
+        print(os.path.basename(pdf), '(pages: ', len(merger.pages), ')')
     merger.write(out_pdf)
-    merger.close()
     return pdfindex
 
 
@@ -105,11 +96,11 @@ def add_page_number(input_file: str, output_file: str, start_num: int = 1, recor
     """
     # 既存PDF（ページを付けるPDF）
     fi = open(input_file, 'rb')
-    pdf_reader = PyPDF2.PdfReader(fi)
+    pdf_reader = pypdf.PdfReader(fi)
     pages_num = len(pdf_reader.pages)
 
     # ページ番号を付けたPDFの書き込み用
-    pdf_writer = PyPDF2.PdfWriter()
+    pdf_writer = pypdf.PdfWriter()
 
     # ページ番号だけのPDFをメモリ（binary stream）に作成
     bs = io.BytesIO()
@@ -123,8 +114,8 @@ def add_page_number(input_file: str, output_file: str, start_num: int = 1, recor
         create_page_number_pdf(c, page_size, i + start_num)
     c.save()
 
-    # ページ番号だけのPDFをメモリから読み込み（seek操作はPyPDF2に実装されているので不要）
-    pdf_num_reader = PyPDF2.PdfReader(bs)
+    # ページ番号だけのPDFをメモリから読み込み（seek操作はpypdfに実装されているので不要）
+    pdf_num_reader = pypdf.PdfReader(bs)
 
     # 既存PDFに１ページずつページ番号を付ける
     for i in range(0, pages_num):
@@ -174,8 +165,8 @@ def get_page_size(page: PageObject) -> tuple:
     return float(width), float(height)
 
 def add_outline(infile, outfile, pdfindex):
-    reader = PyPDF2.PdfReader(infile)
-    writer = PyPDF2.PdfWriter()
+    reader = pypdf.PdfReader(infile)
+    writer = pypdf.PdfWriter()
     writer.append_pages_from_reader(reader)
     for key, val in pdfindex.items():
         if not key == '-':
@@ -227,7 +218,8 @@ if __name__ == "__main__":
     print("目次は以下です")
     # pdfindexのkeyでfilelistから目次名を取得
     for key, value in pdfindex.items():
-        print(filelist.at[key.replace('.pdf', '.docx'), '目次'], ':', value)
+        print(key, ':', value)
+#        print(filelist.at[key.replace('.pdf', '.docx'), '目次'], ':', value)
     if args.wipe_tempdir : shutil.rmtree(tmpdir)
 
     print("ページ追加中")
