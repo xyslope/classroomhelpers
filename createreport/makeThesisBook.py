@@ -15,7 +15,6 @@ from argparse import ArgumentParser
 import pandas as pd
 import io
 
-
 # ページ番号の下からの位置
 PAGE_BOTTOM = 10 * mm
 # ページ番号のプレフィックス
@@ -26,37 +25,54 @@ pdfmetrics.registerFont(UnicodeCIDFont("HeiseiKakuGo-W5"))
 # オプション引数を受け取る
 #（出所：「Pythonでオプション引数を受け取る - Qiita」、https://qiita.com/taashi/items/400871fb13df476f42d2  ）
 
+
 def get_options():
     argparser = ArgumentParser()
-    argparser.add_argument('-b', '--add_blank',
+    argparser.add_argument('-b',
+                           '--add_blank',
                            action="store_true",
                            help='If number of pages is odd, add a blank page.')
-    argparser.add_argument('-sc', '--skip_convert', 
-                           help='Skip convert from docx to pdf.',
-                           action="store_true",
-                           )
-    argparser.add_argument('-w', '--wipe_tempdir',
+    argparser.add_argument(
+        '-sc',
+        '--skip_convert',
+        help='Skip convert from docx to pdf.',
+        action="store_true",
+    )
+    argparser.add_argument('-w',
+                           '--wipe_tempdir',
                            action="store_true",
                            help='Wipe working directory.')
-    argparser.add_argument('-s', '--source_path', type=str,
-                           default = os.getcwd(),
+    argparser.add_argument('-s',
+                           '--source_path',
+                           type=str,
+                           default=os.getcwd(),
                            help='Document root')
-    argparser.add_argument('-dd', '--doc_dir', type=str,
-                           default = 'docs',
+    argparser.add_argument('-dd',
+                           '--doc_dir',
+                           type=str,
+                           default='docs',
                            help='Path to docs')
-    argparser.add_argument('-o', '--out_file', type=str,
-                           default = 'out.pdf',
+    argparser.add_argument('-o',
+                           '--out_file',
+                           type=str,
+                           default='out.pdf',
                            help='Path to docs')
-    argparser.add_argument('-td', '--temp_dir', type=str,
-                           default = 'temp',
+    argparser.add_argument('-td',
+                           '--temp_dir',
+                           type=str,
+                           default='temp',
                            help='Working directory')
-    argparser.add_argument('-ww', '--wipe_workingfiles',
-                           action = "store_true",
+    argparser.add_argument('-ww',
+                           '--wipe_workingfiles',
+                           action="store_true",
                            help='wipe working files')
-    argparser.add_argument('-p', '--from_pagenum', type=int,
-                           default = 0,
+    argparser.add_argument('-p',
+                           '--from_pagenum',
+                           type=int,
+                           default=0,
                            help='Add page num from page x')
     return argparser.parse_args()
+
 
 def convert(in_file, out_file):
     """convert word file to pdf
@@ -69,6 +85,7 @@ def convert(in_file, out_file):
     doc.Close()
     word.Quit()
 
+
 def pdf_merger(out_pdf, pdfs, add_blank):
     """create a combined pdf file.
     out_pdf: combined documents
@@ -80,7 +97,8 @@ def pdf_merger(out_pdf, pdfs, add_blank):
     print('Merging your documents...')
     merger = pypdf.PdfWriter()
     for pdf in pdfs:
-        pdftitle = filelist.at[os.path.basename(pdf).replace('.pdf', '.docx'), '目次']
+        pdftitle = filelist.at[os.path.basename(pdf).replace('.pdf', '.docx'),
+                               '目次']
         pdfindex[pdftitle] = len(merger.pages) + 1
         merger.append(pdf, pdftitle)
         if add_blank & (len(merger.pages) % 2) == 1:
@@ -90,7 +108,10 @@ def pdf_merger(out_pdf, pdfs, add_blank):
     return pdfindex
 
 
-def add_page_number(input_file: str, output_file: str, start_num: int = 1, record_from: int = 0):
+def add_page_number(input_file: str,
+                    output_file: str,
+                    start_num: int = 1,
+                    record_from: int = 0):
     """
     既存PDFにページ番号を追加する
     """
@@ -123,7 +144,7 @@ def add_page_number(input_file: str, output_file: str, start_num: int = 1, recor
         pdf_page = pdf_reader.pages[i]
         # ページ番号だけのPDF
         pdf_num = pdf_num_reader.pages[i]
-        if i >= record_from-1:
+        if i >= record_from - 1:
             # ２つのPDFを重ねる
             pdf_page.merge_page(pdf_num)
         pdf_writer.add_page(pdf_page)
@@ -144,13 +165,10 @@ def create_page_number_pdf(c: canvas.Canvas, page_size: tuple, page_num: int):
     c.setPageSize(page_size)
     c.setFont("HeiseiKakuGo-W5", 10)
     if page_num % 2 != 0:
-        c.drawRightString(page_size[0] - 25,
-                      PAGE_BOTTOM,
-                      "-" + str(page_num) + "-")
+        c.drawRightString(page_size[0] - 25, PAGE_BOTTOM,
+                          "-" + str(page_num) + "-")
     else:
-        c.drawString(25,
-                      PAGE_BOTTOM,
-                      "-" + str(page_num) + "-")
+        c.drawString(25, PAGE_BOTTOM, "-" + str(page_num) + "-")
     c.showPage()
 
 
@@ -164,6 +182,7 @@ def get_page_size(page: PageObject) -> tuple:
 
     return float(width), float(height)
 
+
 def add_outline(infile, outfile, pdfindex):
     reader = pypdf.PdfReader(infile)
     writer = pypdf.PdfWriter()
@@ -171,9 +190,10 @@ def add_outline(infile, outfile, pdfindex):
     for key, val in pdfindex.items():
         if not key == '-':
             print(key, val)
-            writer.add_outline_item(key, val-1, parent=None)  # add bookmark
+            writer.add_outline_item(key, val - 1, parent=None)  # add bookmark
     with open(outfile, "wb") as fp:
         writer.write(fp)
+
 
 if __name__ == "__main__":
     args = get_options()
@@ -187,8 +207,8 @@ if __name__ == "__main__":
 
     filelist = pd.read_csv(source_path + '\\filelist.csv')
     filelist = filelist.set_index('file')
-    tmpdir = source_path  + args.temp_dir + '\\'
-                    
+    tmpdir = source_path + args.temp_dir + '\\'
+
     if not args.skip_convert:
         if os.path.exists(tmpdir): shutil.rmtree(tmpdir)
         os.mkdir(tmpdir)
@@ -208,10 +228,10 @@ if __name__ == "__main__":
         file_pdf = tmpdir + (f.replace('.docx', '.pdf'))
         pdfs.append(file_pdf)
         if not args.skip_convert:
-            print('Converting... ', f)        
+            print('Converting... ', f)
             convert(docdir + f, file_pdf)
-        
-    out_file = str(source_path  +args.out_file)
+
+    out_file = str(source_path + args.out_file)
     if os.path.exists(out_file): os.remove(out_file)
 
     pdfindex = pdf_merger(out_file, pdfs, args.add_blank)
@@ -220,14 +240,14 @@ if __name__ == "__main__":
     for key, value in pdfindex.items():
         print(key, ':', value)
 #        print(filelist.at[key.replace('.pdf', '.docx'), '目次'], ':', value)
-    if args.wipe_tempdir : shutil.rmtree(tmpdir)
+    if args.wipe_tempdir: shutil.rmtree(tmpdir)
 
     print("ページ追加中")
-    paged_file = str(source_path  + "paged.pdf")
+    paged_file = str(source_path + "paged.pdf")
     if os.path.exists(paged_file): os.remove(paged_file)
     add_page_number(out_file, paged_file, 1, args.from_pagenum)
     print("目次追加中")
-    outlined_file = str(source_path  + "outlined.pdf")
+    outlined_file = str(source_path + "outlined.pdf")
     if os.path.exists(outlined_file): os.remove(outlined_file)
     add_outline(paged_file, outlined_file, pdfindex)
     if args.wipe_workingfiles:
