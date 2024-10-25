@@ -3,6 +3,7 @@ import os
 import shutil
 import comtypes.client
 import pypdf
+from pathlib import Path
 from pypdf import PageObject
 from reportlab.pdfgen import canvas
 from reportlab.pdfbase import pdfmetrics
@@ -78,8 +79,8 @@ def convert(in_file, out_file):
     out_file: pdf file with fullpath
     """
     word = comtypes.client.CreateObject('Word.Application')
-    doc = word.Documents.Open(in_file)
-    doc.SaveAs(out_file, FileFormat=17)
+    doc = word.Documents.Open(str(in_file))
+    doc.SaveAs(str(out_file), FileFormat=17)
     doc.Close()
     word.Quit()
 
@@ -192,28 +193,30 @@ def add_outline(infile, outfile, pdfindex):
     with open(outfile, "wb") as fp:
         writer.write(fp)
 
+def setfile(source, file_name):
+    file_path = Path(source) / file_name.lstrip("\\/")
+    file_path.unlink(missing_ok=True)
+    return file_path
 
 if __name__ == "__main__":
     args = get_options()
-    source_path = args.source_path + '\\'
-    docdir = source_path + args.doc_dir + '\\'
-
-    # ファイル読み込み
-    if not os.path.exists(docdir):
+    source_path = args.source_path
+    docdir = Path(source_path) / args.doc_dir.lstrip("\\/")
+    if not docdir.exists():
         print('ソースディレクトリが存在しません。')
         sys.exit()
-
-    filelist = pd.read_csv(source_path + '\\filelist.csv')
-    filelist = filelist.set_index('file')
-    tmpdir = source_path + args.temp_dir + '\\'
-
+    tmpdir = Path(source_path) / args.temp_dir.lstrip("\\/")
     if not args.skip_convert:
-        if os.path.exists(tmpdir): shutil.rmtree(tmpdir)
-        os.mkdir(tmpdir)
+        if tmpdir.exists(): shutil.rmtree(tmpdir)
+        tmpdir.mkdir()
+    out_file = setfile(source_path, args.out_file)
+    paged_file = setfile(source_path, "paged.pdf")
+    outlined_file = setfile(source_path,   "outlined.pdf")
+
 
     # A4の新規PDFファイルを作成
-    blankpage = source_path + 'blank.pdf'
-    if not os.path.exists(blankpage):
+    blankpage = Path(source_path) / 'blank.pdf'
+    if not blankpage.exists():
         # os.remove(blankpage)
         page = canvas.Canvas(blankpage, pagesize=portrait(A4))
         # PDFファイルとして保存
@@ -222,15 +225,14 @@ if __name__ == "__main__":
 
     pdfs = []
 
+    filelist = pd.read_csv(Path(source_path) / 'filelist.csv')
+    filelist = filelist.set_index('file')
     for f in filelist.index:
-        file_pdf = tmpdir + (f.replace('.docx', '.pdf'))
+        file_pdf = Path(tmpdir) / f.replace('.docx', '.pdf')
         pdfs.append(file_pdf)
         if not args.skip_convert:
             print('Converting... ', f)
-            convert(docdir + f, file_pdf)
-
-    out_file = str(source_path + args.out_file)
-    if os.path.exists(out_file): os.remove(out_file)
+            convert(Path(docdir) / f, file_pdf)
 
     pdfindex = pdf_merger(out_file, pdfs, args.add_blank)
     print("目次は以下です")
@@ -238,16 +240,13 @@ if __name__ == "__main__":
     for key, value in pdfindex.items():
         print(key, ':', value)
 #        print(filelist.at[key.replace('.pdf', '.docx'), '目次'], ':', value)
-    if args.wipe_tempdir: shutil.rmtree(tmpdir)
 
     print("ページ追加中")
-    paged_file = str(source_path + "paged.pdf")
-    if os.path.exists(paged_file): os.remove(paged_file)
     add_page_number(out_file, paged_file, 1, args.from_pagenum)
     print("目次追加中")
-    outlined_file = str(source_path + "outlined.pdf")
-    if os.path.exists(outlined_file): os.remove(outlined_file)
     add_outline(paged_file, outlined_file, pdfindex)
+
     if args.wipe_workingfiles:
-        os.remove(out_file)
-        os.remove(paged_file)
+        out_file.unlink()
+        paged_file.unlink()
+    if args.wipe_tempdir: shutil.rmtree(tmpdir)
