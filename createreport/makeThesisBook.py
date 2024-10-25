@@ -65,11 +65,16 @@ def get_options():
                            '--wipe_workingfiles',
                            action="store_true",
                            help='wipe working files')
-    argparser.add_argument('-p',
-                           '--from_pagenum',
+    argparser.add_argument('-pf',
+                           '--page_from',
                            type=int,
-                           default=0,
+                           default=1,
                            help='Add page num from page x')
+    argparser.add_argument('-ps',
+                           '--page_start',
+                           type=int,
+                           default=-1,
+                           help='Start page num from x. -1 is count from the first page.')
     return argparser.parse_args()
 
 
@@ -131,7 +136,8 @@ def add_page_number(input_file: str,
         # PDFページのサイズ
         page_size = get_page_size(pdf_page)
         # ページ番号のPDF作成
-        create_page_number_pdf(c, page_size, i + start_num)
+        current_page_num = (i + 1 - record_from ) + start_num if start_num > -1 else i + 1
+        create_page_number_pdf(c, page_size, i, current_page_num)
     c.save()
 
     # ページ番号だけのPDFをメモリから読み込み（seek操作はpypdfに実装されているので不要）
@@ -157,13 +163,13 @@ def add_page_number(input_file: str,
     fo.close()
 
 
-def create_page_number_pdf(c: canvas.Canvas, page_size: tuple, page_num: int):
+def create_page_number_pdf(c: canvas.Canvas, page_size: tuple, page_id: int, page_num: int):
     """
     ページ番号だけのPDFを作成
     """
     c.setPageSize(page_size)
     c.setFont("HeiseiKakuGo-W5", 10)
-    if page_num % 2 != 0:
+    if page_id % 2 == 0:
         c.drawRightString(page_size[0] - 25, PAGE_BOTTOM,
                           "-" + str(page_num) + "-")
     else:
@@ -242,7 +248,7 @@ if __name__ == "__main__":
 #        print(filelist.at[key.replace('.pdf', '.docx'), '目次'], ':', value)
 
     print("ページ追加中")
-    add_page_number(out_file, paged_file, 1, args.from_pagenum)
+    add_page_number(out_file, paged_file, args.page_start, args.page_from)
     print("目次追加中")
     add_outline(paged_file, outlined_file, pdfindex)
 
