@@ -2,8 +2,6 @@ import sys
 import os
 import shutil
 import comtypes.client
-import glob
-import pathlib
 import pypdf
 from pypdf import PageObject
 from reportlab.pdfgen import canvas
@@ -51,12 +49,12 @@ def get_options():
                            '--doc_dir',
                            type=str,
                            default='docs',
-                           help='Path to docs')
+                           help='Path to doc directory')
     argparser.add_argument('-o',
                            '--out_file',
                            type=str,
                            default='out.pdf',
-                           help='Path to docs')
+                           help='Path to output directory')
     argparser.add_argument('-td',
                            '--temp_dir',
                            type=str,
