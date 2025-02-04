@@ -2,6 +2,11 @@ import sys
 import os
 import shutil
 import comtypes.client
+from docx import Document
+from docx.shared import Pt
+from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
+from docx.oxml import OxmlElement
+from docx.oxml.ns import qn
 import pypdf
 from pathlib import Path
 from pypdf import PageObject
@@ -13,6 +18,7 @@ from reportlab.lib.pagesizes import A4, portrait
 from argparse import ArgumentParser
 import pandas as pd
 import io
+
 
 # ページ番号の下からの位置
 PAGE_BOTTOM = 10 * mm
@@ -61,6 +67,11 @@ def get_options():
                            type=str,
                            default='temp',
                            help='Working directory')
+    argparser.add_argument('-t',
+                           '--tocfile',
+                           type=str,
+                           default='filelist.csv',
+                           help='File list')
     argparser.add_argument('-ww',
                            '--wipe_workingfiles',
                            action="store_true",
@@ -77,14 +88,81 @@ def get_options():
                            help='Start page num from x. -1 is count from the first page.')
     return argparser.parse_args()
 
+def remove_sections(doc):
+    """
+    Word 文書のすべてのセクションを削除し、レイアウトをできるだけ維持する
+    """
+
+    # すべてのセクション区切りを削除（セクションを1つに統一）
+
+def add_page_numbers_eachfile(doc):
+    """
+    comtypes を使用して、Word 文書のフッターにページ番号を挿入し、フィールドを自動更新する
+    """
+    # Word アプリケーションを起動（バックグラウンドで実行）
+    for section_index in range(doc.Sections.Count, 1, -1):  # 最後のセクションから順に処理
+        section_range = doc.Sections(section_index).Range
+        section_range.Collapse(0)  # セクションの先頭にカーソルを移動
+        section_range.InsertBefore("\n")  # セクション削除前に改行を追加
+
+        # セクション区切り (^b) を検索して削除
+        find = section_range.Find
+        find.Text = "^b"  # ^b はセクション区切り
+        find.Replacement.Text = ""
+        find.Execute(Replace=2)  # wdReplaceAll
+
+    # 総ページ数を取得
+    total_pages = doc.ComputeStatistics(2)  # wdStatisticPages = 2
+
+    # **セクションを統一（すべてのセクションで同じフッターを使用）**
+    #for section in doc.Sections:
+    #    section.Footers(1).LinkToPrevious = True  # すべてのセクションでフッターを統一
+
+    # **すべてのセクションのフッターをクリアし、ページ番号を挿入**
+    for section in doc.Sections:
+        footer = section.Footers(1)  # wdHeaderFooterPrimary（通常のフッター）
+
+        # フッターの内容を完全クリア
+        footer.Range.Text = ""
+
+        # フッターの中央揃え
+        paragraph = footer.Range.Paragraphs.Add()
+        paragraph.Alignment = 1  # wdAlignParagraphCenter
+
+        # 【1】現在のページ番号を追加
+        field_page = paragraph.Range.Fields.Add(paragraph.Range, 33)  # wdFieldPage
+
+        # 【2】スラッシュ "/" を追加
+        paragraph.Range.InsertAfter(" / " + str(total_pages))
+
+        # 【3】総ページ数を追加
+        paragraph.Range.Collapse(0)  # カーソルを末尾に移動
+        #field_total = paragraph.Range.Fields.Add(paragraph.Range, 26)  # wdFieldNumPages
+
+    # **フィールドを強制更新**
+    doc.Fields.Update()
+    for section in doc.Sections:
+        section.Footers(1).Range.Fields.Update()  # wdHeaderFooterPrimary
 
 def convert(in_file, out_file):
     """convert word file to pdf
     in_file: word file with fullpath
     out_file: pdf file with fullpath
     """
-    word = comtypes.client.CreateObject('Word.Application')
+    word = comtypes.client.CreateObject("Word.Application")
+    word.Visible = False  # 非表示で実行
+
+    # Word 文書を開く
     doc = word.Documents.Open(str(in_file))
+    add_page_numbers_eachfile(doc)
+    print(f"ページ番号を追加し、フィールドを更新しました: {in_file}")
+
+    # ページ数の確認（python-docx では正確なページ数を取得できない）
+
+    #word = comtypes.client.CreateObject('Word.Application')
+    #word.Visible = False  # 非表示で実行
+    #doc = word.Documents.Open(str(tmp_file))
+    #doc = word.Documents.Open(str(in_file))
     doc.SaveAs(str(out_file), FileFormat=17)
     doc.Close()
     word.Quit()
@@ -224,7 +302,7 @@ if __name__ == "__main__":
     blankpage = Path(source_path) / 'blank.pdf'
     if not blankpage.exists():
         # os.remove(blankpage)
-        page = canvas.Canvas(blankpage, pagesize=portrait(A4))
+        page = canvas.Canvas(str(blankpage), pagesize=portrait(A4))
         # PDFファイルとして保存
         page.showPage()
         page.save()
@@ -233,6 +311,7 @@ if __name__ == "__main__":
 
     filelist = pd.read_csv(Path(source_path) / 'filelist.csv')
     filelist = filelist.set_index('file')
+    print(source_path)
     for f in filelist.index:
         file_pdf = Path(tmpdir) / f.replace('.docx', '.pdf')
         pdfs.append(file_pdf)
