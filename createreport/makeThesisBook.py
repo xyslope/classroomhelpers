@@ -154,8 +154,8 @@ def convert(in_file, out_file):
 
     # Word 文書を開く
     doc = word.Documents.Open(str(in_file))
-    add_page_numbers_eachfile(doc)
-    print(f"ページ番号を追加し、フィールドを更新しました: {in_file}")
+    # add_page_numbers_eachfile(doc)
+    # print(f"ページ番号を追加し、フィールドを更新しました: {in_file}")
 
     # ページ数の確認（python-docx では正確なページ数を取得できない）
 
@@ -180,7 +180,7 @@ def pdf_merger(out_pdf, pdfs, add_blank):
     merger = pypdf.PdfWriter()
     for pdf in pdfs:
         pdftitle = filelist.at[os.path.basename(pdf).replace('.pdf', '.docx'),
-                               '目次']
+                               'toc_text']
         pdfindex[pdftitle] = len(merger.pages) + 1
         merger.append(pdf, pdftitle)
         if add_blank & (len(merger.pages) % 2) == 1:
@@ -189,56 +189,113 @@ def pdf_merger(out_pdf, pdfs, add_blank):
     merger.write(out_pdf)
     return pdfindex
 
-
 def add_page_number(input_file: str,
                     output_file: str,
-                    start_num: int = 1,
-                    record_from: int = 0):
+                    page_start: int = -1,
+                    page_from: int = 0):
     """
-    既存PDFにページ番号を追加する
+    既存PDFにページ番号を追加する。
+    
+    :param input_file: 元のPDFファイル
+    :param output_file: ページ番号付きのPDFファイル
+    :param page_start: 何番からページ番号をカウントするか（-1なら1から）
+    :param page_from: 何ページ目からページ番号を記録するか（0-indexed）
     """
-    # 既存PDF（ページを付けるPDF）
+    # 既存PDFを開く
     fi = open(input_file, 'rb')
     pdf_reader = pypdf.PdfReader(fi)
     pages_num = len(pdf_reader.pages)
 
-    # ページ番号を付けたPDFの書き込み用
+    # 新しいPDFの書き込み用
     pdf_writer = pypdf.PdfWriter()
 
-    # ページ番号だけのPDFをメモリ（binary stream）に作成
+    # ページ番号用PDFの作成（メモリ上）
     bs = io.BytesIO()
     c = canvas.Canvas(bs)
+
+    # ページ番号をつける処理
+    current_page_num = page_start if page_start > -1 else 1
+
     for i in range(0, pages_num):
-        # 既存PDF
         pdf_page = pdf_reader.pages[i]
-        # PDFページのサイズ
         page_size = get_page_size(pdf_page)
-        # ページ番号のPDF作成
-        current_page_num = (i + 1 - record_from ) + start_num if start_num > -1 else i + 1
-        create_page_number_pdf(c, page_size, i, current_page_num)
+
+        if i >= page_from:  # ✅ `page_from` 以降のページにのみ番号をつける
+            create_page_number_pdf(c, page_size, i, current_page_num)
+            current_page_num += 1  # ✅ ページ番号をインクリメント
+        else:
+            create_page_number_pdf(c, page_size, i, None)  # ✅ ページ番号なし
+
     c.save()
 
-    # ページ番号だけのPDFをメモリから読み込み（seek操作はpypdfに実装されているので不要）
+    # ページ番号用PDFをメモリから読み込む
     pdf_num_reader = pypdf.PdfReader(bs)
 
-    # 既存PDFに１ページずつページ番号を付ける
+    # ページ番号を追加
     for i in range(0, pages_num):
-        # 既存PDF
         pdf_page = pdf_reader.pages[i]
-        # ページ番号だけのPDF
         pdf_num = pdf_num_reader.pages[i]
-        if i >= record_from - 1:
-            # ２つのPDFを重ねる
-            pdf_page.merge_page(pdf_num)
+
+        if i >= page_from:
+            pdf_page.merge_page(pdf_num)  # ✅ ページ番号を追加
         pdf_writer.add_page(pdf_page)
 
-    # ページ番号を付けたPDFを保存
-    fo = open(output_file, 'wb')
-    pdf_writer.write(fo)
+    # 出力ファイルを保存
+    with open(output_file, 'wb') as fo:
+        pdf_writer.write(fo)
 
     bs.close()
     fi.close()
-    fo.close()
+
+# def add_page_number(input_file: str,
+#                     output_file: str,
+#                     start_num: int = 1,
+#                     record_from: int = 0):
+#     """
+#     既存PDFにページ番号を追加する
+#     """
+#     # 既存PDF（ページを付けるPDF）
+#     fi = open(input_file, 'rb')
+#     pdf_reader = pypdf.PdfReader(fi)
+#     pages_num = len(pdf_reader.pages)
+
+#     # ページ番号を付けたPDFの書き込み用
+#     pdf_writer = pypdf.PdfWriter()
+
+#     # ページ番号だけのPDFをメモリ（binary stream）に作成
+#     bs = io.BytesIO()
+#     c = canvas.Canvas(bs)
+#     for i in range(0, pages_num):
+#         # 既存PDF
+#         pdf_page = pdf_reader.pages[i]
+#         # PDFページのサイズ
+#         page_size = get_page_size(pdf_page)
+#         # ページ番号のPDF作成
+#         current_page_num = (i + 1 - record_from ) + start_num if start_num > -1 else i + 1
+#         create_page_number_pdf(c, page_size, i, current_page_num)
+#     c.save()
+
+#     # ページ番号だけのPDFをメモリから読み込み（seek操作はpypdfに実装されているので不要）
+#     pdf_num_reader = pypdf.PdfReader(bs)
+
+#     # 既存PDFに１ページずつページ番号を付ける
+#     for i in range(0, pages_num):
+#         # 既存PDF
+#         pdf_page = pdf_reader.pages[i]
+#         # ページ番号だけのPDF
+#         pdf_num = pdf_num_reader.pages[i]
+#         if i >= record_from - 1:
+#             # ２つのPDFを重ねる
+#             pdf_page.merge_page(pdf_num)
+#         pdf_writer.add_page(pdf_page)
+
+#     # ページ番号を付けたPDFを保存
+#     fo = open(output_file, 'wb')
+#     pdf_writer.write(fo)
+
+#     bs.close()
+#     fi.close()
+#     fo.close()
 
 
 def create_page_number_pdf(c: canvas.Canvas, page_size: tuple, page_id: int, page_num: int):
@@ -310,7 +367,7 @@ if __name__ == "__main__":
     pdfs = []
 
     filelist = pd.read_csv(Path(source_path) / 'filelist.csv')
-    filelist = filelist.set_index('file')
+    filelist = filelist.set_index('filename')
     print(source_path)
     for f in filelist.index:
         file_pdf = Path(tmpdir) / f.replace('.docx', '.pdf')

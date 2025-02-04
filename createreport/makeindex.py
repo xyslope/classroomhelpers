@@ -129,7 +129,6 @@ def create_index(filelist, tocfile, page_count_from=0):
     for index, entry in updated_filelist.iterrows():
         updated_filelist.at[index, "start_page"] = current_page  # 正しい開始ページを記録
         current_page += entry["page_count"]
-# updated_filelist.to_csv(filelist, index=False, encoding="utf-8-sig")
 
     # 3️⃣ 正しいページ番号で目次を再作成
     doc2 = create_1index(updated_filelist,tocfile, page_count_from)
@@ -146,7 +145,6 @@ if __name__ == "__main__":
         sys.exit()
  
     # create filelist
-    #    filelist = pd.read_csv(Path(source_path) / 'filelist.csv')
     filelist = pd.read_csv(str(Path(source_path) / args.filelist), encoding="utf-8-sig")
     tocfile = str(Path(docdir) / args.tocfile)
     newfilelist = create_index(filelist, tocfile, args.page_count_from)
