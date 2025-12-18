@@ -88,62 +88,6 @@ def get_options():
                            help='Start page num from x. -1 is count from the first page.')
     return argparser.parse_args()
 
-def remove_sections(doc):
-    """
-    Word 文書のすべてのセクションを削除し、レイアウトをできるだけ維持する
-    """
-
-    # すべてのセクション区切りを削除（セクションを1つに統一）
-
-def add_page_numbers_eachfile(doc):
-    """
-    comtypes を使用して、Word 文書のフッターにページ番号を挿入し、フィールドを自動更新する
-    """
-    # Word アプリケーションを起動（バックグラウンドで実行）
-    for section_index in range(doc.Sections.Count, 1, -1):  # 最後のセクションから順に処理
-        section_range = doc.Sections(section_index).Range
-        section_range.Collapse(0)  # セクションの先頭にカーソルを移動
-        section_range.InsertBefore("\n")  # セクション削除前に改行を追加
-
-        # セクション区切り (^b) を検索して削除
-        find = section_range.Find
-        find.Text = "^b"  # ^b はセクション区切り
-        find.Replacement.Text = ""
-        find.Execute(Replace=2)  # wdReplaceAll
-
-    # 総ページ数を取得
-    total_pages = doc.ComputeStatistics(2)  # wdStatisticPages = 2
-
-    # **セクションを統一（すべてのセクションで同じフッターを使用）**
-    #for section in doc.Sections:
-    #    section.Footers(1).LinkToPrevious = True  # すべてのセクションでフッターを統一
-
-    # **すべてのセクションのフッターをクリアし、ページ番号を挿入**
-    for section in doc.Sections:
-        footer = section.Footers(1)  # wdHeaderFooterPrimary（通常のフッター）
-
-        # フッターの内容を完全クリア
-        footer.Range.Text = ""
-
-        # フッターの中央揃え
-        paragraph = footer.Range.Paragraphs.Add()
-        paragraph.Alignment = 1  # wdAlignParagraphCenter
-
-        # 【1】現在のページ番号を追加
-        field_page = paragraph.Range.Fields.Add(paragraph.Range, 33)  # wdFieldPage
-
-        # 【2】スラッシュ "/" を追加
-        paragraph.Range.InsertAfter(" / " + str(total_pages))
-
-        # 【3】総ページ数を追加
-        paragraph.Range.Collapse(0)  # カーソルを末尾に移動
-        #field_total = paragraph.Range.Fields.Add(paragraph.Range, 26)  # wdFieldNumPages
-
-    # **フィールドを強制更新**
-    doc.Fields.Update()
-    for section in doc.Sections:
-        section.Footers(1).Range.Fields.Update()  # wdHeaderFooterPrimary
-
 def convert(in_file, out_file):
     """convert word file to pdf
     in_file: word file with fullpath
@@ -154,15 +98,6 @@ def convert(in_file, out_file):
 
     # Word 文書を開く
     doc = word.Documents.Open(str(in_file))
-    # add_page_numbers_eachfile(doc)
-    # print(f"ページ番号を追加し、フィールドを更新しました: {in_file}")
-
-    # ページ数の確認（python-docx では正確なページ数を取得できない）
-
-    #word = comtypes.client.CreateObject('Word.Application')
-    #word.Visible = False  # 非表示で実行
-    #doc = word.Documents.Open(str(tmp_file))
-    #doc = word.Documents.Open(str(in_file))
     doc.SaveAs(str(out_file), FileFormat=17)
     doc.Close()
     word.Quit()
@@ -195,11 +130,11 @@ def add_page_number(input_file: str,
                     page_from: int = 0):
     """
     既存PDFにページ番号を追加する。
-    
+
     :param input_file: 元のPDFファイル
     :param output_file: ページ番号付きのPDFファイル
     :param page_start: 何番からページ番号をカウントするか（-1なら1から）
-    :param page_from: 何ページ目からページ番号を記録するか（0-indexed）
+    :param page_from: 何番目の文書からページ番号を記録するか（0-indexed）
     """
     # 既存PDFを開く
     fi = open(input_file, 'rb')
@@ -213,14 +148,25 @@ def add_page_number(input_file: str,
     bs = io.BytesIO()
     c = canvas.Canvas(bs)
 
-    # ページ番号をつける処理
+    # ✅ `actual_page_from` の決定
+    actual_page_from = 0  # ページ番号を振り始めるPDFのページ
+
+    # `filelist.csv` から `page_from` に該当する文書のページ数を取得
+    filelist = pd.read_csv("filelist.csv", encoding="utf-8-sig")  # ✅ `filelist.csv` を取得
+    for i in range(page_from):  # ✅ `page_from` の前の文書のページ数を合算
+        actual_page_from += filelist.iloc[i]["page_count"]
+
+    print(f"実際のページ番号開始: {actual_page_from}ページ目")
+
+    # ✅ `page_start` の適用（指定がない場合は 1 から開始）
     current_page_num = page_start if page_start > -1 else 1
 
     for i in range(0, pages_num):
         pdf_page = pdf_reader.pages[i]
         page_size = get_page_size(pdf_page)
 
-        if i >= page_from:  # ✅ `page_from` 以降のページにのみ番号をつける
+        # ✅ 指定した `page_from` 以降のページにのみページ番号を振る
+        if i >= actual_page_from+1:
             create_page_number_pdf(c, page_size, i, current_page_num)
             current_page_num += 1  # ✅ ページ番号をインクリメント
         else:
@@ -236,7 +182,7 @@ def add_page_number(input_file: str,
         pdf_page = pdf_reader.pages[i]
         pdf_num = pdf_num_reader.pages[i]
 
-        if i >= page_from:
+        if i >= actual_page_from+1:
             pdf_page.merge_page(pdf_num)  # ✅ ページ番号を追加
         pdf_writer.add_page(pdf_page)
 
@@ -246,57 +192,6 @@ def add_page_number(input_file: str,
 
     bs.close()
     fi.close()
-
-# def add_page_number(input_file: str,
-#                     output_file: str,
-#                     start_num: int = 1,
-#                     record_from: int = 0):
-#     """
-#     既存PDFにページ番号を追加する
-#     """
-#     # 既存PDF（ページを付けるPDF）
-#     fi = open(input_file, 'rb')
-#     pdf_reader = pypdf.PdfReader(fi)
-#     pages_num = len(pdf_reader.pages)
-
-#     # ページ番号を付けたPDFの書き込み用
-#     pdf_writer = pypdf.PdfWriter()
-
-#     # ページ番号だけのPDFをメモリ（binary stream）に作成
-#     bs = io.BytesIO()
-#     c = canvas.Canvas(bs)
-#     for i in range(0, pages_num):
-#         # 既存PDF
-#         pdf_page = pdf_reader.pages[i]
-#         # PDFページのサイズ
-#         page_size = get_page_size(pdf_page)
-#         # ページ番号のPDF作成
-#         current_page_num = (i + 1 - record_from ) + start_num if start_num > -1 else i + 1
-#         create_page_number_pdf(c, page_size, i, current_page_num)
-#     c.save()
-
-#     # ページ番号だけのPDFをメモリから読み込み（seek操作はpypdfに実装されているので不要）
-#     pdf_num_reader = pypdf.PdfReader(bs)
-
-#     # 既存PDFに１ページずつページ番号を付ける
-#     for i in range(0, pages_num):
-#         # 既存PDF
-#         pdf_page = pdf_reader.pages[i]
-#         # ページ番号だけのPDF
-#         pdf_num = pdf_num_reader.pages[i]
-#         if i >= record_from - 1:
-#             # ２つのPDFを重ねる
-#             pdf_page.merge_page(pdf_num)
-#         pdf_writer.add_page(pdf_page)
-
-#     # ページ番号を付けたPDFを保存
-#     fo = open(output_file, 'wb')
-#     pdf_writer.write(fo)
-
-#     bs.close()
-#     fi.close()
-#     fo.close()
-
 
 def create_page_number_pdf(c: canvas.Canvas, page_size: tuple, page_id: int, page_num: int):
     """

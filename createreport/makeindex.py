@@ -21,7 +21,7 @@ def get_options():
     argparser.add_argument('-dd',
                            '--doc_dir',
                            type=str,
-                           default='docs',
+                            default='docs',
                            help='Path to doc directory')
     argparser.add_argument('-l',
                            '--filelist',
@@ -60,7 +60,7 @@ def add_toc_entry(doc, toc_text, page_number):
     run = paragraph.add_run(toc_text)
     run.font.size = Pt(12)
 
-    if page_number is not None:
+    if page_number != None:
         # タブを挿入（リーダーを追加）
         paragraph.add_run("\t")  # タブ文字でリーダーを挿入
 
@@ -99,11 +99,11 @@ def create_1index(filelist, tocfile, page_count_from=0):
 
     current_page = 1  # まずは 1 からカウント
     for i, entry in filelist.iterrows():
-        if i >= page_count_from:  # ✅ 指定行（`page_count_from`）からカウント開始
-            add_toc_entry(doc, entry["toc_text"], current_page)
+        if i >= page_count_from and entry["add_pagenum"]:  # 指定行（`page_count_from`）からカウント開始
+            add_toc_entry(doc, entry["toc_text"],current_page)
             current_page += entry["page_count"]
         else:
-            add_toc_entry(doc, entry["toc_text"], None)  # 指定行より前はページ番号なし
+            add_toc_entry(doc, entry["toc_text"] ,None)  # 指定行より前はページ番号なし
     doc.save(tocfile)
 
 def create_index(filelist, tocfile, page_count_from=0):
