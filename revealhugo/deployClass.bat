@@ -41,7 +41,7 @@ echo [OK] Switched to %WORK_BRANCH% branch
 REM === Step 3: Remove notes and Q&A ===
 echo.
 echo [3/7] Removing speaker notes and QA from Markdown...
-python C:\Users\yusakata\bin\postEditContents.py
+python C:\Users\yusakata\work\github.com\xyslope\classroomhelpers\revealhugo\postEditContents.py
 if errorlevel 1 (
     echo [ERROR] Failed to remove notes and QA
     git checkout main

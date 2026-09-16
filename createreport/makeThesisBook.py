@@ -166,7 +166,7 @@ def add_page_number(input_file: str,
         page_size = get_page_size(pdf_page)
 
         # ✅ 指定した `page_from` 以降のページにのみページ番号を振る
-        if i >= actual_page_from+1:
+        if i >= actual_page_from:
             create_page_number_pdf(c, page_size, i, current_page_num)
             current_page_num += 1  # ✅ ページ番号をインクリメント
         else:
@@ -182,7 +182,7 @@ def add_page_number(input_file: str,
         pdf_page = pdf_reader.pages[i]
         pdf_num = pdf_num_reader.pages[i]
 
-        if i >= actual_page_from+1:
+        if i >= actual_page_from:
             pdf_page.merge_page(pdf_num)  # ✅ ページ番号を追加
         pdf_writer.add_page(pdf_page)
 
